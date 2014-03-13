@@ -16,10 +16,11 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TimeZone;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 
+import org.eclipse.paho.client.mqttv3.IMqttActionListener;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
+import org.eclipse.paho.client.mqttv3.IMqttToken;
+import org.eclipse.paho.client.mqttv3.MqttAsyncClient;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttException;
@@ -33,8 +34,6 @@ public class Main {
 	private static Map<String, ConsolidatedValues> consolidation = new HashMap<>();
 
 	private static long endMinute;
-
-	private static BlockingQueue<ToPublish> queue = new LinkedBlockingQueue<ToPublish>();
 
 	private static class ToPublish {
 
@@ -60,8 +59,7 @@ public class Main {
 		clearConsolidation();
 
 		try {
-
-			final MqttClient mqttClient = new MqttClient(BROKER_URI,
+			final MqttAsyncClient mqttClient = new MqttAsyncClient(BROKER_URI,
 					MqttClient.generateClientId(), new MemoryPersistence());
 
 			mqttClient.setCallback(new MqttCallback() {
@@ -113,7 +111,9 @@ public class Main {
 										e.getValue().getAverage()).getBytes());
 								p.message.setRetained(true);
 								p.message.setQos(1);
-								queue.add(p);
+
+								mqttClient.publish(p.topic, p.message);
+
 							}
 
 							clearConsolidation();
@@ -134,35 +134,24 @@ public class Main {
 							+ cause.getLocalizedMessage());
 				}
 			});
-			mqttClient.connect();
-			mqttClient.subscribe("greenhouse/LIVE/benjamin-bbb/data/#");
-
-			// thread used to publish message outside of the reception callback
-			Thread t = new Thread() {
-				public void run() {
-					for (;;) {
-						ToPublish p;
-						try {
-							p = queue.take();
-
-							System.out.println("publishing!");
-
-							mqttClient.publish(p.topic, p.message);
-						} catch (MqttException e) {
-							e.printStackTrace();
-						} catch (InterruptedException e) {
-							e.printStackTrace();
-							break;
-						}
+			mqttClient.connect(null, new IMqttActionListener() {
+				@Override
+				public void onSuccess(IMqttToken asyncActionToken) {
+					try {
+						mqttClient.subscribe(
+								"greenhouse/LIVE/benjamin-bbb/data/#", 1);
+					} catch (MqttException e) {
+						System.out.println("Connection failed: ");
 					}
-
 				}
-			};
 
-			t.start();
-
+				@Override
+				public void onFailure(IMqttToken asyncActionToken,
+						Throwable exception) {
+					// TODO handle exception
+				}
+			});
 		} catch (MqttException e) {
-
 			e.printStackTrace();
 		}
 	}
