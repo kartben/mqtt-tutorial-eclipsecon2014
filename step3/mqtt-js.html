@@ -73,7 +73,7 @@
     function onConnect() {
         // Once a connection has been made, make a subscription and send a message.
         console.log("onConnect");
-        client.subscribe("/fosdem/#");
+        client.subscribe("greenhouse/LIVE/benjamin-bbb/data/#");
     };
 
     function onConnectionLost(responseObject) {

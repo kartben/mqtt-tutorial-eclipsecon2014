@@ -55,7 +55,7 @@ public class Main {
 				}
 			});
 			mqttClient.connect();
-			mqttClient.subscribe("/fosdem/#");
+			mqttClient.subscribe("greenhouse/LIVE/benjamin-bbb/data/#");
 
 		} catch (MqttException e) {
 			e.printStackTrace();
