@@ -29,130 +29,116 @@ import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 
 public class Main {
 
-	private static final String BROKER_URI = "tcp://iot.eclipse.org:1883";
+    private static final String BROKER_URI = "tcp://iot.eclipse.org:1883";
 
-	private static Map<String, ConsolidatedValues> consolidation = new HashMap<>();
+    private static Map<String, ConsolidatedValues> consolidation = new HashMap<>();
 
-	private static long endMinute;
+    private static long endMinute;
 
-	private static class ToPublish {
+    private static class ToPublish {
 
-		String topic;
+        String topic;
 
-		MqttMessage message;
-	}
+        MqttMessage message;
+    }
 
-	private static void clearConsolidation() {
-		consolidation = new HashMap<>();
+    private static void clearConsolidation() {
+        consolidation = new HashMap<>();
 
-		// next minute
-		Calendar cal = Calendar.getInstance();
+        // next minute
+        Calendar cal = Calendar.getInstance();
 
-		cal.add(Calendar.MINUTE, 1);
-		cal.set(Calendar.SECOND, 0);
+        cal.add(Calendar.MINUTE, 1);
+        cal.set(Calendar.SECOND, 0);
 
-		endMinute = cal.getTime().getTime();
+        endMinute = cal.getTime().getTime();
 
-	}
+    }
 
-	public static void main(String[] args) {
-		clearConsolidation();
+    public static void main(String[] args) {
+        clearConsolidation();
 
-		try {
-			final MqttAsyncClient mqttClient = new MqttAsyncClient(BROKER_URI,
-					MqttClient.generateClientId(), new MemoryPersistence());
+        try {
+            final MqttAsyncClient mqttClient = new MqttAsyncClient(BROKER_URI, MqttClient.generateClientId(),
+                    new MemoryPersistence());
 
-			mqttClient.setCallback(new MqttCallback() {
+            mqttClient.setCallback(new MqttCallback() {
 
-				@Override
-				public void messageArrived(String topic, MqttMessage message)
-						throws Exception {
+                @Override
+                public void messageArrived(String topic, MqttMessage message) throws Exception {
 
-					try {
-						double data = Double.parseDouble(new String(message
-								.getPayload()));
+                    try {
+                        double data = Double.parseDouble(new String(message.getPayload()));
 
-						System.out.println(topic + " => " + data);
+                        System.out.println(topic + " => " + data);
 
-						String dataName = topic.substring(topic
-								.lastIndexOf('/') + 1);
+                        String dataName = topic.substring(topic.lastIndexOf('/') + 1);
 
-						ConsolidatedValues conso = consolidation.get(dataName);
-						if (conso == null) {
-							conso = new ConsolidatedValues();
-							consolidation.put(dataName, conso);
-						}
+                        ConsolidatedValues conso = consolidation.get(dataName);
+                        if (conso == null) {
+                            conso = new ConsolidatedValues();
+                            consolidation.put(dataName, conso);
+                        }
 
-						conso.addSample(data);
+                        conso.addSample(data);
 
-						System.out.println("average " + dataName + ": "
-								+ conso.getAverage() + " ("
-								+ conso.getSampleCount() + " samples)");
-						if (System.currentTimeMillis() > endMinute) {
-							System.out.println("PUBLISH CONSOLIDATION");
+                        System.out.println("average " + dataName + ": " + conso.getAverage() + " ("
+                                + conso.getSampleCount() + " samples)");
+                        if (System.currentTimeMillis() > endMinute) {
+                            System.out.println("PUBLISH CONSOLIDATION");
 
-							// publish averages and
-							for (Map.Entry<String, ConsolidatedValues> e : consolidation
-									.entrySet()) {
-								ToPublish p = new ToPublish();
-								Calendar c = Calendar.getInstance(TimeZone
-										.getTimeZone("GMT"));
-								c.setTime(new Date(endMinute));
+                            // publish averages and
+                            for (Map.Entry<String, ConsolidatedValues> e : consolidation.entrySet()) {
+                                ToPublish p = new ToPublish();
+                                Calendar c = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+                                c.setTime(new Date(endMinute));
 
-								p.topic = String
-										.format("greenhouse/CONSOLIDATED/benjamin-bbb/data/%s/%d/%02d/%d/%d/%d",
-												e.getKey(),
-												c.get(Calendar.YEAR),
-												c.get(Calendar.MONTH) + 1,
-												c.get(Calendar.DAY_OF_MONTH),
-												c.get(Calendar.HOUR_OF_DAY),
-												c.get(Calendar.MINUTE));
-								p.message = new MqttMessage(Double.toString(
-										e.getValue().getAverage()).getBytes());
-								p.message.setRetained(true);
-								p.message.setQos(1);
+                                p.topic = String.format(
+                                        "greenhouse/CONSOLIDATED/benjamin-bbb/data/%s/%d/%02d/%d/%d/%d", e.getKey(),
+                                        c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH),
+                                        c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE));
+                                p.message = new MqttMessage(Double.toString(e.getValue().getAverage()).getBytes());
+                                p.message.setRetained(true);
+                                p.message.setQos(1);
 
-								mqttClient.publish(p.topic, p.message);
+                                mqttClient.publish(p.topic, p.message);
 
-							}
+                            }
 
-							clearConsolidation();
-						}
-					} catch (RuntimeException e) {
-						e.printStackTrace();
-					}
-				}
+                            clearConsolidation();
+                        }
+                    } catch (RuntimeException e) {
+                        e.printStackTrace();
+                    }
+                }
 
-				@Override
-				public void deliveryComplete(IMqttDeliveryToken token) {
-					// not used
-				}
+                @Override
+                public void deliveryComplete(IMqttDeliveryToken token) {
+                    // not used
+                }
 
-				@Override
-				public void connectionLost(Throwable cause) {
-					System.out.println("Connection lost: "
-							+ cause.getLocalizedMessage());
-				}
-			});
-			mqttClient.connect(null, new IMqttActionListener() {
-				@Override
-				public void onSuccess(IMqttToken asyncActionToken) {
-					try {
-						mqttClient.subscribe(
-								"greenhouse/LIVE/benjamin-bbb/data/#", 1);
-					} catch (MqttException e) {
-						System.out.println("Connection failed: ");
-					}
-				}
+                @Override
+                public void connectionLost(Throwable cause) {
+                    System.out.println("Connection lost: " + cause.getLocalizedMessage());
+                }
+            });
+            mqttClient.connect(null, new IMqttActionListener() {
+                @Override
+                public void onSuccess(IMqttToken asyncActionToken) {
+                    try {
+                        mqttClient.subscribe("greenhouse/LIVE/benjamin-bbb/data/#", 1);
+                    } catch (MqttException e) {
+                        System.out.println("Connection failed: ");
+                    }
+                }
 
-				@Override
-				public void onFailure(IMqttToken asyncActionToken,
-						Throwable exception) {
-					// TODO handle exception
-				}
-			});
-		} catch (MqttException e) {
-			e.printStackTrace();
-		}
-	}
+                @Override
+                public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
+                    exception.printStackTrace();
+                }
+            });
+        } catch (MqttException e) {
+            e.printStackTrace();
+        }
+    }
 }
