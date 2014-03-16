@@ -15,6 +15,7 @@
 
     <div id="content">
         <div id="chart"></div>
+        <div id="preview"></div>
     </div>
 
     <script>
@@ -34,17 +35,17 @@
             bottom: 0
         },
         series: new Rickshaw.Series.FixedDuration([{
-            name: 'luminosity',
+            name: 'Luminosity',
         }], undefined, {
             timeInterval: tv,
-            maxDataPoints: 100,
+            maxDataPoints: 500,
             timeBase: new Date().getTime() / 1000
         })
     });
 
     var time = new Rickshaw.Fixtures.Time();
     var seconds = {
-            seconds: 5,
+            seconds: 10,
             formatter: function(d) { return d.toTimeString() }
         }
 
@@ -62,6 +63,17 @@
 
     yAxis.render();
 
+    var preview = new Rickshaw.Graph.RangeSlider.Preview( {
+        graph: graph,
+        element: document.getElementById('preview'),
+    } );
+
+    var hoverDetail = new Rickshaw.Graph.HoverDetail( {
+        graph: graph,
+        yFormatter: function(y) {
+            return y + ' lux';
+        }
+    });
 
     client = new Messaging.Client("ws://iot.eclipse.org/ws", "greenhouse" + new Date().getTime());
     client.onConnectionLost = onConnectionLost;
@@ -88,7 +100,7 @@
             var topic = message.destinationName;
             var sensor = topic.substring(topic.lastIndexOf("/") + 1, topic.length);
             graph.series.addData({
-                one: data
+                luminosity: data
             });
             graph.render();
         }
