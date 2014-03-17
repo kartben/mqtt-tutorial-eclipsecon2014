@@ -12,8 +12,10 @@
 package org.eclipse.tutorials.mqtt;
 
 import java.util.Calendar;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TimeZone;
 
 import org.eclipse.paho.client.mqttv3.IMqttActionListener;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
@@ -59,8 +61,11 @@ public class Main {
                 public void messageArrived(String topic, MqttMessage message) throws Exception {
 
                     try {
+                        double data = Double.parseDouble(new String(message.getPayload()));
 
-                        // TODO receive data
+                        System.out.println(topic + " => " + data);
+
+                        String dataName = topic.substring(topic.lastIndexOf('/') + 1);
 
                         ConsolidatedValues conso = consolidation.get(dataName);
                         if (conso == null) {
@@ -70,11 +75,30 @@ public class Main {
 
                         conso.addSample(data);
 
-                        // end of the minute?
+                        System.out.println("average " + dataName + ": " + conso.getAverage() + " ("
+                                + conso.getSampleCount() + " samples)");
                         if (System.currentTimeMillis() > endMinute) {
                             System.out.println("PUBLISH CONSOLIDATION");
 
-                            // TODO publish computed average value
+                            // publish averages and
+                            for (Map.Entry<String, ConsolidatedValues> e : consolidation.entrySet()) {
+                                String topicPub;
+                                MqttMessage messagePub;
+
+                                Calendar c = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+                                c.setTime(new Date(endMinute));
+
+                                topicPub = String.format(
+                                        "greenhouse/CONSOLIDATED/benjamin-bbb/data/%s/%d/%02d/%d/%d/%d", e.getKey(),
+                                        c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH),
+                                        c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE));
+                                messagePub = new MqttMessage(Double.toString(e.getValue().getAverage()).getBytes());
+                                messagePub.setRetained(true);
+                                messagePub.setQos(1);
+
+                                mqttClient.publish(topicPub, messagePub);
+
+                            }
 
                             clearConsolidation();
                         }
@@ -96,8 +120,11 @@ public class Main {
             mqttClient.connect(null, new IMqttActionListener() {
                 @Override
                 public void onSuccess(IMqttToken asyncActionToken) {
-
-                    // TODO
+                    try {
+                        mqttClient.subscribe("greenhouse/LIVE/benjamin-bbb/data/#", 1);
+                    } catch (MqttException e) {
+                        System.out.println("Connection failed: ");
+                    }
                 }
 
                 @Override
