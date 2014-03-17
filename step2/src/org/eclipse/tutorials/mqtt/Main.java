@@ -27,86 +27,93 @@ import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 
 public class Main {
 
-    private static final String BROKER_URI = "tcp://iot.eclipse.org:1883";
+	private static final String BROKER_URI = "tcp://iot.eclipse.org:1883";
 
-    private static Map<String, ConsolidatedValues> consolidation = new HashMap<>();
+	private static Map<String, ConsolidatedValues> consolidation = new HashMap<>();
 
-    private static long endMinute;
+	private static long nextMinuteTimestamp;
 
-    private static void clearConsolidation() {
-        consolidation = new HashMap<>();
+	private static void clearConsolidation() {
+		consolidation = new HashMap<>();
 
-        // next minute
-        Calendar cal = Calendar.getInstance();
+		// next minute
+		Calendar cal = Calendar.getInstance();
 
-        cal.add(Calendar.MINUTE, 1);
-        cal.set(Calendar.SECOND, 0);
+		cal.add(Calendar.MINUTE, 1);
+		cal.set(Calendar.SECOND, 0);
 
-        endMinute = cal.getTime().getTime();
+		nextMinuteTimestamp = cal.getTime().getTime();
 
-    }
+	}
 
-    public static void main(String[] args) {
-        clearConsolidation();
+	public static void main(String[] args) {
+		clearConsolidation();
 
-        try {
-            final MqttAsyncClient mqttClient = new MqttAsyncClient(BROKER_URI, MqttClient.generateClientId(),
-                    new MemoryPersistence());
+		try {
+			final MqttAsyncClient mqttClient = new MqttAsyncClient(BROKER_URI,
+					MqttClient.generateClientId(), new MemoryPersistence());
 
-            mqttClient.setCallback(new MqttCallback() {
+			mqttClient.setCallback(new MqttCallback() {
 
-                @Override
-                public void messageArrived(String topic, MqttMessage message) throws Exception {
+				@Override
+				public void messageArrived(String topic, MqttMessage message)
+						throws Exception {
 
-                    try {
+					try {
+						// TODO retrieve sensor value and sensor name
+						double sensorValue = 0;
+						// sensorValue = ...
+						String sensorName = null;
+						// sensorName = ...
 
-                        // TODO receive data
+						ConsolidatedValues conso = consolidation
+								.get(sensorName);
+						if (conso == null) {
+							conso = new ConsolidatedValues();
+							consolidation.put(sensorName, conso);
+						}
 
-                        ConsolidatedValues conso = consolidation.get(dataName);
-                        if (conso == null) {
-                            conso = new ConsolidatedValues();
-                            consolidation.put(dataName, conso);
-                        }
+						conso.addSample(sensorValue);
 
-                        conso.addSample(data);
+						// end of the minute?
+						if (System.currentTimeMillis() > nextMinuteTimestamp) {
+							System.out.println("PUBLISH CONSOLIDATION");
 
-                        // end of the minute?
-                        if (System.currentTimeMillis() > endMinute) {
-                            System.out.println("PUBLISH CONSOLIDATION");
+							// TODO publish computed average value
 
-                            // TODO publish computed average value
+							clearConsolidation();
+						}
+					} catch (RuntimeException e) {
+						e.printStackTrace();
+					}
+				}
 
-                            clearConsolidation();
-                        }
-                    } catch (RuntimeException e) {
-                        e.printStackTrace();
-                    }
-                }
+				@Override
+				public void deliveryComplete(IMqttDeliveryToken token) {
+					// not used
+				}
 
-                @Override
-                public void deliveryComplete(IMqttDeliveryToken token) {
-                    // not used
-                }
+				@Override
+				public void connectionLost(Throwable cause) {
+					System.out.println("Connection lost: "
+							+ cause.getLocalizedMessage());
+				}
+			});
+			mqttClient.connect(null, new IMqttActionListener() {
+				@Override
+				public void onSuccess(IMqttToken asyncActionToken) {
 
-                @Override
-                public void connectionLost(Throwable cause) {
-                    System.out.println("Connection lost: " + cause.getLocalizedMessage());
-                }
-            });
-            mqttClient.connect(null, new IMqttActionListener() {
-                @Override
-                public void onSuccess(IMqttToken asyncActionToken) {
+					// TODO subscribe to live data
+				}
 
-                    // TODO
-                }
-
-                @Override
-                public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
-                    exception.printStackTrace();
-                }
-            });
-        } catch (MqttException e) {
-            e.printStackTrace();
-        }
-    }
+				@Override
+				public void onFailure(IMqttToken asyncActionToken,
+						Throwable exception) {
+					exception.printStackTrace();
+				}
+			});
+		} catch (MqttException e) {
+			e.printStackTrace();
+		}
+	}
 }

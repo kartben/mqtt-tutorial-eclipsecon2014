@@ -11,14 +11,13 @@
  *******************************************************************************/
 package org.eclipse.tutorials.mqtt;
 
-
 public class Main {
 
-    public static String MQTT_URL = "tcp://iot.eclipse.org:1883";
+	public static String BROKER_URI = "tcp://iot.eclipse.org:1883";
 
-    public static void main(String[] args) {
+	public static void main(String[] args) {
 
-        // TO COMPLETE
+		// TO COMPLETE
 
-    }
+	}
 }

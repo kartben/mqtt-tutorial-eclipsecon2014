@@ -20,12 +20,14 @@ import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 
 public class Main {
 
+	private static final String BROKER_URI = "tcp://iot.eclipse.org:1883";
+
 	public static void main(String[] args) {
 
 		try {
 
 			final MqttClient mqttClient = new MqttClient(
-					"tcp://iot.eclipse.org:1883",
+					BROKER_URI,
 					MqttClient.generateClientId(), new MemoryPersistence());
 
 			mqttClient.setCallback(new MqttCallback() {

@@ -61,21 +61,21 @@ public class Main {
                 public void messageArrived(String topic, MqttMessage message) throws Exception {
 
                     try {
-                        double data = Double.parseDouble(new String(message.getPayload()));
+                        double sensorValue = Double.parseDouble(new String(message.getPayload()));
 
-                        System.out.println(topic + " => " + data);
+                        System.out.println(topic + " => " + sensorValue);
 
-                        String dataName = topic.substring(topic.lastIndexOf('/') + 1);
+                        String sensorName = topic.substring(topic.lastIndexOf('/') + 1);
 
-                        ConsolidatedValues conso = consolidation.get(dataName);
+                        ConsolidatedValues conso = consolidation.get(sensorName);
                         if (conso == null) {
                             conso = new ConsolidatedValues();
-                            consolidation.put(dataName, conso);
+                            consolidation.put(sensorName, conso);
                         }
 
-                        conso.addSample(data);
+                        conso.addSample(sensorValue);
 
-                        System.out.println("average " + dataName + ": " + conso.getAverage() + " ("
+                        System.out.println("average " + sensorName + ": " + conso.getAverage() + " ("
                                 + conso.getSampleCount() + " samples)");
                         if (System.currentTimeMillis() > endMinute) {
                             System.out.println("PUBLISH CONSOLIDATION");
